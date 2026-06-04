@@ -1,5 +1,3 @@
-from select import select
-
 from flask import  request, jsonify
 from marshmallow import ValidationError
 
@@ -44,7 +42,9 @@ def get_service_ticket(service_ticket_id):
         
     except ValidationError as err:
         return jsonify(err.messages), 400
-     
+    
+    if not service_ticket_data:
+        return jsonify({"error": "service_ticket not found"}), 404
 
     return service_ticket_schema.jsonify(service_ticket_data), 200
 
@@ -57,7 +57,6 @@ def get_service_tickets():
         
     except ValidationError as err:
         return jsonify(err.messages), 400
-     
 
     return service_tickets_schema.jsonify(service_tickets_data), 200
 
@@ -81,10 +80,11 @@ def get_my_tickets(current_id, current_role):
 #========== Update ===========
 
 @service_ticket_bp.route("/<int:ticket_id>/edit_parts/<int:inventory_id>", methods=["PUT"])
+@token_required
 def edit_parts(ticket_id, inventory_id):
     quantity = request.json.get("quantity")
 
-    if not quantity:
+    if quantity is None:
         return jsonify({"error": "quantity required"}), 400
 
     ticket = db.session.get(ServiceTicket, ticket_id)
@@ -102,9 +102,9 @@ def edit_parts(ticket_id, inventory_id):
 
     if existing:
         existing.quantity += quantity
+        db.session.commit()
         return jsonify({"message": "Part updated"}), 200
     else:
-       
         association = ServiceTicketInventory(
             service_ticket=ticket,
             inventory=part,
@@ -117,6 +117,7 @@ def edit_parts(ticket_id, inventory_id):
     return jsonify({"message": "Part added"}), 200
 
 @service_ticket_bp.route("/<int:service_ticket_id>/edit_mechanics", methods=["PUT"])
+@token_required
 def edit_service_ticket(service_ticket_id):
     try:
         service_ticket_edits = service_ticket_update_schema.load(request.json, partial=True)
@@ -148,12 +149,15 @@ def edit_service_ticket(service_ticket_id):
 
 @service_ticket_bp.route("/<int:service_ticket_id>", methods=["DELETE"])
 @limiter.limit("5 per year")
-def delete_service_ticket(service_ticket_id):
+@token_required
+def delete_service_ticket(current_id, current_role, service_ticket_id):
     service_ticket = db.session.get(ServiceTicket, service_ticket_id)
+
     if not service_ticket:
         return jsonify({"error": "service_ticket not found"}), 404
 
     db.session.delete(service_ticket)
     db.session.commit()
+
     return jsonify({"message": "service_ticket deleted"}), 200
 

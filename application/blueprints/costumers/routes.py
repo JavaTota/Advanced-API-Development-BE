@@ -149,3 +149,4 @@ def delete_costumer(current_id, current_role):
     db.session.delete(costumer)
     db.session.commit()
     return jsonify({"message": "Costumer deleted"}), 200
+
