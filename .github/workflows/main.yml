@@ -1,4 +1,4 @@
-name: Flask CI
+name: Flask CI/CD
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [main, master]
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -39,16 +39,64 @@ jobs:
               pass
           EOF
 
-      - name: Install Project Dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Verify Python Environment
+      - name: Verify Build
         run: |
           python --version
           pip --version
 
-      - name: Execute Unit Tests
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Create Testing Configuration
+        run: |
+          cat > config.py << 'EOF'
+          class DevelopmentConfig:
+              SQLALCHEMY_DATABASE_URI = 'sqlite:///development.db'
+              DEBUG = True
+              CACHE_TYPE = 'SimpleCache'
+              CACHE_DEFAULT_TIMEOUT = 300
+
+          class TestingConfig:
+              SQLALCHEMY_DATABASE_URI = 'sqlite:///testing.db'
+              DEBUG = True
+              TESTING = True
+              CACHE_TYPE = 'SimpleCache'
+              SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+          class ProductionConfig:
+              pass
+          EOF
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Unit Tests
         run: |
           python -m unittest discover -s tests -p "test_*.py"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Trigger Render Deployment
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
