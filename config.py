@@ -1,8 +1,8 @@
 import os
 
 class DevelopmentConfig:
-    SQLALCHEMY_DATABASE_URI = 'mysql+mysqlconnector://root:Root.123@localhost/mechanic_shop'
-    DEBUG = True # Enable debug mode for development
+    SQLALCHEMY_DATABASE_URI = 'mysql+mysqlconnector://root:JavaTota.97@localhost/mechanic_shop'
+    DEBUG = True 
     CACHE_TYPE = 'SimpleCache'
     CACHE_DEFAULT_TIMEOUT = 300
 
